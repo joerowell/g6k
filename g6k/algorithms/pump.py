@@ -21,8 +21,8 @@ def print_pump_state(pump, verbose=False):
 
     if verbose > 1:
         print("\t col/|db| = %.3f, \t red/|db| = %.3f," %
-                (pump.g6k.last_sieve_collisions / len(pump.g6k), 
-                 pump.g6k.last_sieve_reductions / len(pump.g6k)))
+                (pump.g6k.last_sieve_collisions / float(len(pump.g6k)), 
+                 pump.g6k.last_sieve_reductions / float(len(pump.g6k))))
     sys.stdout.flush()
 
 
