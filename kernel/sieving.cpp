@@ -28,6 +28,15 @@ bool Siever::test_saturation()
     return false;
 }
 
+bool Siever::test_failsafe()
+{
+    if( params.failsafe_collision_threshold <= 0 )
+        return false;
+    size_t collisions = last_sieve_collisions.load(std::memory_order_release);
+    double ratio = double(collisions) / db.size();
+    return ratio > params.failsafe_collision_threshold;
+}
+
 
 // Sieve the current database
 // The 'queue' is stored at the end of the main list

@@ -204,6 +204,7 @@ cdef extern from "../kernel/siever.h" nogil:
         size_t bgj1_transaction_bulk_size
         string simhash_codes_basedir
         double bdgl_improvement_db_ratio
+        double failsafe_collision_threshold
 
     cdef cppclass Siever:
 

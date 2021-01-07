@@ -58,6 +58,7 @@ cdef class SieverParams(object):
         "bgj1_transaction_bulk_size",
         "simhash_codes_basedir",
         "bdgl_improvement_db_ratio",
+        "failsafe_collision_threshold",
         # Python
         "db_size_base",
         "db_size_factor",
@@ -113,7 +114,8 @@ cdef class SieverParams(object):
             kwds["bdgl_bucket_size_factor"] =  .3
         if "bdgl_min_bucket_size" not in kwds:
             kwds["bdgl_min_bucket_size"] = 128
-
+        if "failsafe_collision_threshold" not in kwds:
+            kwds["failsafe_collision_threshold"] = 8.
 
         if "dual_mode" not in kwds:
             kwds["dual_mode"] = False                      
@@ -179,6 +181,8 @@ cdef class SieverParams(object):
             self._core.simhash_codes_basedir = value.encode("utf-8") if isinstance(value, str) else value
         elif key == "bdgl_improvement_db_ratio":
             self._core.bdgl_improvement_db_ratio = value
+        elif key == "failsafe_collision_threshold":
+            self._core.failsafe_collision_threshold = value
         else:
             self._pyattr[key] = value
 
@@ -213,6 +217,8 @@ cdef class SieverParams(object):
             return self._core.simhash_codes_basedir
         elif key == "bdgl_improvement_db_ratio":
             return self._core.bdgl_improvement_db_ratio
+        elif key == "failsafe_collision_threshold":
+            return self._core.failsafe_collision_threshold
         else:
             return self._pyattr[key]
 

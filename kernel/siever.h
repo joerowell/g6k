@@ -369,6 +369,8 @@ public:
 
   double bdgl_improvement_db_ratio = .8;
 
+  double failsafe_collision_threshold = 8.;
+
   std::string simhash_codes_basedir = "";  // directory holding spherical codes for simhash.
 };
 
@@ -1103,6 +1105,7 @@ private:
     CACHELINE_VARIABLE(std::atomic_size_t, GBL_saturation_count); // used by bgj1 sieve
     void set_saturation_bounds();
     bool test_saturation();
+    bool test_failsafe();
 
 
     thread_pool::thread_pool threadpool;
