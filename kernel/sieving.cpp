@@ -11,6 +11,8 @@
 // The 'queue' is stored at the end of the main list
 void Siever::gauss_sieve(size_t max_db_size)
 {
+    last_sieve_collisions = 0;
+    last_sieve_reductions = 0;
     CPUCOUNT(301);
     switch_mode_to(SieveStatus::gauss);
     parallel_sort_cdb();
@@ -85,8 +87,10 @@ start_over:
                     ++local_stat_successful_xorpopcnt_reds; // adds to successful xorpopcnt and also to scalar product computations
                     #endif
                     short const which_one = gauss_no_upd_reduce_in_db(pce1, &fast_cdb[j]); // takes values {0,1,2}
-                    if(which_one != 0) //actual reduction
+                    if (which_one < 0) ++last_sieve_collisions;
+                    if(which_one > 0) //actual reduction
                     {
+                        ++last_sieve_reductions;
                         ENABLE_IF_STATS_REDSUCCESS(++local_stat_successful_2red_outer;)
                         if(which_one==1) // p was reduced, re-start
                         {
@@ -252,7 +256,7 @@ short Siever::gauss_no_upd_reduce_in_db(CompressedEntry *ce1, CompressedEntry *c
   auto new_uid = uid_hash_table.compute_uid(x_new);
   if(uid_hash_table.replace_uid(db[target_ptr->i].uid, new_uid) == false)
   {
-    return 0;
+    return -1;
   }
   else
   {

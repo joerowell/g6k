@@ -263,6 +263,9 @@ cdef extern from "../kernel/siever.h" nogil:
         unsigned int r
         unsigned int n
 
+        unsigned long long last_sieve_collisions
+        unsigned long long last_sieve_reductions
+
         void gso_update_postprocessing(const unsigned int l_, const unsigned int r_, long* M)
 
 

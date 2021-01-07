@@ -9,12 +9,20 @@ from g6k.siever import SaturationError
 import logging
 
 
-def print_pump_state(pump):
+def print_pump_state(pump, verbose=False):
+    if not verbose:
+        return
+
     pump.minl = min(pump.g6k.l, pump.minl)
     if pump.phase != "down":
         print("\r %3d: ↑%3d      " % (pump.r-pump.l, pump.g6k.r-pump.g6k.l), end=' ')
     else:
         print("\r %3d: ↑%3d ↓%3d " % (pump.r-pump.l, pump.r-pump.minl, pump.r-pump.g6k.l), end=' ')
+
+    if verbose > 1:
+        print("\t col/|db| = %.3f, \t red/|db| = %.3f," %
+                (pump.g6k.last_sieve_collisions / len(pump.g6k), 
+                 pump.g6k.last_sieve_reductions / len(pump.g6k)))
     sys.stdout.flush()
 
 
@@ -129,8 +137,7 @@ def pump(g6k, tracer, kappa, blocksize, dim4free, down_sieve=False,             
                     raise RuntimeError("The current sieving context is bigger than maximum supported dimension.")
                 g6k.extend_left(1)
 
-                if verbose:
-                    print_pump_state(pump)
+                print_pump_state(pump, verbose)
                 if not wrapped_sieve(pump):
                     break
 
@@ -152,8 +159,7 @@ def pump(g6k, tracer, kappa, blocksize, dim4free, down_sieve=False,             
                     break
 
                 # Sieve (or Shrink db)
-                if verbose:
-                    print_pump_state(pump)
+                print_pump_state(pump, verbose)
                 if not pump.down_sieve:
                     g6k.resize_db(max(500, g6k.db_size() / g6k.params.db_size_base))
                 elif not wrapped_sieve(pump):

@@ -420,6 +420,25 @@ cdef class Siever(object):
         """
         return self._core.cdb.size()
 
+    @property
+    def last_sieve_collisions(self):
+        """
+        A count of the number of collisions that occured during the last sieve that was ran.
+        (note that repeating the same reduction count as multiple collisions)
+
+        """
+        return self._core.last_sieve_collisions
+
+
+    @property
+    def last_sieve_reductions(self):
+        """
+        A count of the number of reductions performed by the last sieve that was ran.
+        This only count effective reduction, not tentative reduction discarded due to collisions.
+        """
+        return self._core.last_sieve_reductions
+
+
     def db_size(self, compressed=True):
         """
         Return the size of the database:
