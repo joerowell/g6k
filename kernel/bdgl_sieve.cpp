@@ -385,7 +385,6 @@ bool Siever::bdgl_sieve(size_t nr_buckets_aim, const size_t blocks, const size_t
     std::vector<atomic_size_t_wrapper> buckets_i;
     std::vector<std::vector<QEntry>> t_queues(params.threads);
 
-    size_t it = 0;
     while( true ) {
         bdgl_bucketing(blocks, multi_hash, nr_buckets_aim, buckets, buckets_i);
 
@@ -400,13 +399,13 @@ bool Siever::bdgl_sieve(size_t nr_buckets_aim, const size_t blocks, const size_t
             invalidate_histo();
             recompute_histo();
             return true;
-        } 
-
-        if( it > 10000 ) {
-            std::cerr << "Not saturated after 10000 iterations" << std::endl;
-            return false;
         }
 
-        it++;
+        if( test_failsafe() ) {
+            std::cerr << "Failsafe: Collision Threshold was reached before saturation." << std::endl;
+            invalidate_histo();
+            recompute_histo();
+            return false;
+        }
     }
 }

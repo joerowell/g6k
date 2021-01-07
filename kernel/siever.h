@@ -955,7 +955,8 @@ private:
         out_of_queue = 2, // we have run out of queue to process: queue size is below TS_min_queue_size
         out_of_queue_resume = 3,    // in addition to the above, when we ran out of queue, we had a
                                     // large number of pending db transactions. We might restart the algorithm after merging those.
-        sortings_exceeded = 4  // We re-sorted more than TS_max_number_of_sorts many times.
+        sortings_exceeded = 4,  // We re-sorted more than TS_max_number_of_sorts many times.
+        failsafe_collisions = 5
     };
     std::atomic<TS_Finished> TS_finished;
 

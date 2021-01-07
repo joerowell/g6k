@@ -146,6 +146,10 @@ start_over:
         statistics.inc_stats_sorting_sieve();
         status_data.gauss_data.reducedness = 2;
         if (test_saturation()) return;
+        if (test_failsafe()) {
+            std::cerr << "Failsafe: Collision Threshold was reached before saturation." << std::endl;
+            return;
+        }
     }   // outer while-loop (managing incrementing the db)
 }
 
@@ -185,12 +189,20 @@ void Siever::nv_sieve()
             if (kk < .5 * S) break;
             if (i % 100) continue; // Only check saturation once in a while
             if (test_saturation()) return;
+            if (test_failsafe()) {
+                std::cerr << "Failsafe: Collision Threshold was reached before saturation." << std::endl;
+                return;
+            }
         }
 
         pa::sort(cdb.begin(), cdb.end(), compare_CE(), threadpool);
         status_data.plain_data.sorted_until = cdb.size();
 
         if (test_saturation()) return;
+        if (test_failsafe()) {
+            std::cerr << "Failsafe: Collision Threshold was reached before saturation." << std::endl;
+            return;
+        }
 
     }
 }

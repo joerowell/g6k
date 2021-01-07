@@ -104,6 +104,11 @@ void Siever::bgj1_sieve(double alpha)
     status_data.plain_data.sorted_until = 0;
     // we set histo for statistical purposes
     recompute_histo(); // TODO: Remove?
+
+    if( GBL_saturation_count > 0 and test_failsafe() ) {
+        std::cerr << "Failsafe: Collision Threshold was reached before saturation." << std::endl;
+    }
+
     return;
 }
 
@@ -468,6 +473,10 @@ bool Siever::bgj1_execute_delayed_replace(std::vector<Entry>& transaction_db, bo
     if (UNLIKELY(GBL_saturation_count.fetch_sub(cur_sat) <= cur_sat))
     {
         GBL_saturation_count = 0;
+        GBL_remaining_trial = -1;
+    }
+
+    if( test_failsafe() ) {
         GBL_remaining_trial = -1;
     }
 

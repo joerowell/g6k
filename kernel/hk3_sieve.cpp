@@ -428,6 +428,15 @@ void Siever::hk3_sieve(double alpha)
             case TS_Finished::running:
                 assert(false);
                 break;
+            case TS_Finished::failsafe_collisions:
+                // stop by failsafe, but check if by chance also saturated
+                if( TS_saturated_entries < requested_saturation ) {
+                    std::cerr << "Failsafe: Collision Threshold was reached before saturation." << std::endl;
+                } 
+                else {
+                    TS_finished.store(TS_Finished::saturated, std::memory_order_relaxed);
+                }
+                break;
             case TS_Finished::saturated:
                 // everything is fine. This is the normal case.
                 break;
@@ -1722,6 +1731,12 @@ cleanup:
     transaction_db.sorted_until = transaction_db.size();
     update_len_bound = TS_len_bound.load();
     last_sieve_reductions.fetch_add(number_of_insertions_performed);
+    if( test_failsafe() ) {
+        if (TS_finished.load(std::memory_order_relaxed) == TS_Finished::running) {
+            TS_EXIT_COND("Triple sieve finished: Maximum number of collisions reached.");
+            TS_finished.store(TS_Finished::failsafe_collisions, std::memory_order_relaxed);
+        }
+    }
     return number_of_insertions_performed;
 }
 
