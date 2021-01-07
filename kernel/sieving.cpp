@@ -169,11 +169,11 @@ void Siever::nv_sieve()
                 if (UNLIKELY( is_reducible_maybe<XPC_THRESHOLD>(cv, fast_cdb[j].c)))
                 {
                     if (reduce_in_db(&cdb[i], &cdb[j], &cdb[kk])) kk--;
-                    if (kk < .25 * S) break;
+                    if (kk < .5 * S) break;
                 }
             }
 //            STATS(stat_P += i);
-            if (kk < .25 * S) break;
+            if (kk < .5 * S) break;
             if (i % 100) continue; // Only check saturation once in a while
             if (test_saturation()) return;
         }
@@ -181,7 +181,6 @@ void Siever::nv_sieve()
         pa::sort(cdb.begin(), cdb.end(), compare_CE(), threadpool);
         status_data.plain_data.sorted_until = cdb.size();
 
-        size_t imin = histo_index(params.saturation_radius);
         if (test_saturation()) return;
 
     }
