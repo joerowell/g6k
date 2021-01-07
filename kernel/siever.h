@@ -492,7 +492,7 @@ public:
 
     // Run one loop of the nv_sieve algorithm on the current db.
     // RET: true if the algorithm thinks that it can do more valuable loops.
-    bool nv_sieve(); // in sieving.cpp
+    void nv_sieve(); // in sieving.cpp
 
     // Runs the bgj1 sieve on the current db.
     // The paramter alpha >= 0 controls when to put vectors into a bucket (bgj1 is a bucketed sieve):
@@ -1098,8 +1098,12 @@ private:
     CACHELINE_VARIABLE(std::atomic<CompressedEntry*>, GBL_start_of_cdb_ptr); // point always either to the start of cdb or to cdb_tmp_copy (due to for sorting)
 
     // saturation stop conditions
+    unsigned int GBL_saturation_histo_imin;
     double GBL_saturation_histo_bound[Siever::size_of_histo]; // used by gauss sieve & triple sieve
     CACHELINE_VARIABLE(std::atomic_size_t, GBL_saturation_count); // used by bgj1 sieve
+    void set_saturation_bounds();
+    bool test_saturation();
+
 
     thread_pool::thread_pool threadpool;
 

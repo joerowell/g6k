@@ -7,6 +7,28 @@
 #include <mutex>
 
 
+void Siever::set_saturation_bounds()
+{
+    GBL_saturation_histo_imin = histo_index(params.saturation_radius);
+    for (unsigned int i = 0; i < size_of_histo; ++i)
+    {
+        GBL_saturation_histo_bound[i] = std::pow(1. + i * (1./size_of_histo), n/2.) * params.saturation_ratio + 20;
+    }
+}
+
+bool Siever::test_saturation()
+{
+    unsigned int cumul = 0;
+    for (unsigned int i=0; i < size_of_histo; ++i)
+    {
+        cumul += histo[i];
+        if (i < GBL_saturation_histo_imin) continue;
+        if (1.99 * cumul > GBL_saturation_histo_bound[i]) return true;
+    }
+    return false;
+}
+
+
 // Sieve the current database
 // The 'queue' is stored at the end of the main list
 void Siever::gauss_sieve(size_t max_db_size)
@@ -18,15 +40,10 @@ void Siever::gauss_sieve(size_t max_db_size)
     parallel_sort_cdb();
     statistics.inc_stats_sorting_sieve();
     recompute_histo();
-    if (max_db_size==0)
-    {
-        max_db_size = 4 * std::pow(4./3., n/2.) + 4*n;
-    }
+    if (max_db_size==0) max_db_size = 4 * std::pow(4./3., n/2.) + 4*n;
 
-    for (unsigned int i = 0; i < size_of_histo; ++i)
-    {
-        GBL_saturation_histo_bound[i] = std::pow(1. + i * (1./size_of_histo), n/2.) * params.saturation_ratio + 20;
-    }
+    set_saturation_bounds();
+
     int iter = 0;
 
     #if COLLECT_STATISTICS_XORPOPCNT || COLLECT_STATISTICS_REDS
@@ -86,11 +103,9 @@ start_over:
                     #if COLLECT_STATISTICS_XORPOPCNT_PASS || COLLECT_STATISTICS_FULLSCPRODS
                     ++local_stat_successful_xorpopcnt_reds; // adds to successful xorpopcnt and also to scalar product computations
                     #endif
-                    short const which_one = gauss_no_upd_reduce_in_db(pce1, &fast_cdb[j]); // takes values {0,1,2}
-                    if (which_one < 0) ++last_sieve_collisions;
-                    if(which_one > 0) //actual reduction
+                    short const which_one = gauss_no_upd_reduce_in_db(pce1, &fast_cdb[j]); // takes values {0,1,2}                    
+                    if(which_one) //actual reduction
                     {
-                        ++last_sieve_reductions;
                         ENABLE_IF_STATS_REDSUCCESS(++local_stat_successful_2red_outer;)
                         if(which_one==1) // p was reduced, re-start
                         {
@@ -121,28 +136,30 @@ start_over:
         parallel_sort_cdb();
         statistics.inc_stats_sorting_sieve();
         status_data.gauss_data.reducedness = 2;
-        size_t imin = histo_index(params.saturation_radius);
-        unsigned int cumul = 0;
-        for (unsigned int i=0 ; i < size_of_histo; ++i)
-        {
-            cumul += histo[i];
-            if (i>=imin && 1.99 * cumul > GBL_saturation_histo_bound[i])
-            {
-                return;
-            }
-        }
+        if (test_saturation()) return;
     }   // outer while-loop (managing incrementing the db)
 }
 
 
-bool Siever::nv_sieve()
+void Siever::nv_sieve()
 {
+    last_sieve_collisions = 0;
+    last_sieve_reductions = 0;
+
+
     CPUCOUNT(304);
     switch_mode_to(SieveStatus::plain);
     parallel_sort_cdb();
     size_t const S = cdb.size();
     CompressedEntry* const fast_cdb = cdb.data();
     recompute_histo();
+
+    size_t imin = histo_index(params.saturation_radius);    
+    for (unsigned int i = 0; i < size_of_histo; ++i)
+    {
+        GBL_saturation_histo_bound[i] = std::pow(1. + i * (1./size_of_histo), n/2.) * params.saturation_ratio + 20;
+    }
+
 
     while(true)
     {
@@ -157,30 +174,21 @@ bool Siever::nv_sieve()
                 if (UNLIKELY( is_reducible_maybe<XPC_THRESHOLD>(cv, fast_cdb[j].c)))
                 {
                     if (reduce_in_db(&cdb[i], &cdb[j], &cdb[kk])) kk--;
-                    if (kk < .5 * S) break;
+                    if (kk < .25 * S) break;
                 }
             }
 //            STATS(stat_P += i);
-            if (kk < .5 * S) break;
+            if (kk < .25 * S) break;
+            if (i % 100) continue; // Only check saturation once in a while
+            if (test_saturation()) return;
         }
 
         pa::sort(cdb.begin(), cdb.end(), compare_CE(), threadpool);
         status_data.plain_data.sorted_until = cdb.size();
 
-        if (kk > .8 *S) return false;
-
         size_t imin = histo_index(params.saturation_radius);
-        long cumul = 0;
+        if (test_saturation()) return;
 
-        for (size_t i=0 ; i < size_of_histo; ++i)
-        {
-            cumul += histo[i];
-            if (i>=imin && 1.99 * cumul > std::pow(1. + i* (1./size_of_histo), n/2.) * params.saturation_ratio)
-            {
-                assert(std::is_sorted(cdb.cbegin(),cdb.cend(), compare_CE()  ));
-                return true;
-            }
-        }
     }
 }
 
@@ -256,7 +264,8 @@ short Siever::gauss_no_upd_reduce_in_db(CompressedEntry *ce1, CompressedEntry *c
   auto new_uid = uid_hash_table.compute_uid(x_new);
   if(uid_hash_table.replace_uid(db[target_ptr->i].uid, new_uid) == false)
   {
-    return -1;
+    ++last_sieve_collisions;
+    return 0;
   }
   else
   {
@@ -267,6 +276,7 @@ short Siever::gauss_no_upd_reduce_in_db(CompressedEntry *ce1, CompressedEntry *c
     target_ptr -> len = db[target_ptr->i].len;
     target_ptr -> c = db[target_ptr ->i].c;
     histo[histo_index(target_ptr ->len)] ++; // doing it only now, to avoid numerical error.
+    ++last_sieve_reductions;
     return which_one;
   }
 
@@ -340,6 +350,7 @@ CompressedEntry* Siever::reduce_in_db(CompressedEntry *ce1, CompressedEntry *ce2
     auto new_uid = uid_hash_table.compute_uid(x_new);
     if(uid_hash_table.replace_uid(db[target_ptr->i].uid, new_uid) == false)
     {
+        ++last_sieve_collisions;
         return nullptr;
     }
     else
@@ -351,6 +362,7 @@ CompressedEntry* Siever::reduce_in_db(CompressedEntry *ce1, CompressedEntry *ce2
         target_ptr -> len = db[target_ptr->i].len;
         target_ptr -> c = db[target_ptr ->i].c;
         histo[histo_index(target_ptr ->len)] ++; // doing it only now, to avoid numerical error.
+        ++last_sieve_reductions;
         return target_ptr;
     }
 }
