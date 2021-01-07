@@ -153,12 +153,7 @@ void Siever::nv_sieve()
     size_t const S = cdb.size();
     CompressedEntry* const fast_cdb = cdb.data();
     recompute_histo();
-
-    size_t imin = histo_index(params.saturation_radius);    
-    for (unsigned int i = 0; i < size_of_histo; ++i)
-    {
-        GBL_saturation_histo_bound[i] = std::pow(1. + i * (1./size_of_histo), n/2.) * params.saturation_ratio + 20;
-    }
+    set_saturation_bounds();
 
 
     while(true)
