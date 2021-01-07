@@ -281,30 +281,38 @@ void Siever::bdgl_queue_create_task( const size_t t_id, const std::vector<QEntry
     const size_t Q = queue.size();
 
     const size_t insert_after = S-1-t_id-params.threads*write_index; 
+    size_t local_collisions = 0;
     for(unsigned int index = 0; index < Q; index++ )  {
         // use sign as skip marker
         if( queue[index].sign == 0 ){
+            local_collisions++;
             continue;
         }
-        bdgl_reduce_with_delayed_replace( queue[index].i, queue[index].j, 
+        if( bdgl_reduce_with_delayed_replace( queue[index].i, queue[index].j, 
                                                   cdb[std::min(S-1, insert_after+params.threads*write_index)].len / REDUCE_LEN_MARGIN,
-                                                  transaction_db, write_index, queue[index].len, queue[index].sign);
+                                                  transaction_db, write_index, queue[index].len, queue[index].sign) == 0) {
+            local_collisions++;
+        }
         if( write_index < 0 ){
             std::cerr << "Spilling full transaction db" << t_id << " " << Q-index << std::endl;
             break;
         }
     }
+    last_sieve_collisions.fetch_add(local_collisions);
 }
 
 size_t Siever::bdgl_queue_insert_task( const size_t t_id, std::vector<Entry> &transaction_db, int64_t write_index) {
     const size_t S = cdb.size();
     const size_t insert_after = std::max(int(0), int(int(S)-1-t_id-params.threads*(transaction_db.size()-write_index))); 
     size_t kk = S-1 - t_id;
+    size_t local_replaced = 0;
     for( int i = transaction_db.size()-1; i > write_index and kk >= insert_after; --i )  { 
             if( bdgl_replace_in_db( kk, transaction_db[i] ) ) {
                 kk -= params.threads;
+                local_replaced++;
             }
     }
+    last_sieve_reductions.fetch_add(local_replaced);
     return kk + params.threads;
 }
 
@@ -369,6 +377,9 @@ bool Siever::bdgl_sieve(size_t nr_buckets_aim, const size_t blocks, const size_t
         saturation_index = std::min(saturation_index, S-1);
     }
     
+    last_sieve_collisions.store(0);
+    last_sieve_reductions.store(0);
+
     std::vector<std::vector<Entry>> transaction_db(params.threads, std::vector<Entry>());
     std::vector<uint32_t> buckets;
     std::vector<atomic_size_t_wrapper> buckets_i;

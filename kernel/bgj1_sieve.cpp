@@ -46,6 +46,9 @@ void Siever::bgj1_sieve(double alpha)
     parallel_sort_cdb();
     statistics.inc_stats_sorting_sieve();
 
+    last_sieve_collisions.store(0);
+    last_sieve_reductions.store(0);
+
     // initialize global variables: GBL_replace_pos is where newly found elements are inserted.
     // This variable is reset after every sort.
     // For better concurrency, when we insert a bunch of vectors, we first (atomically) decrease GBL_replace_pos
@@ -319,6 +322,7 @@ inline bool Siever::bgj1_reduce_with_delayed_replace(CompressedEntry const &ce1,
         }
         else
         {
+            last_sieve_collisions.fetch_add(1, std::memory_order_relaxed);
             if (reduce_while_bucketing)
                 statistics.inc_stats_collisions_2outer();
             else
@@ -447,16 +451,19 @@ bool Siever::bgj1_execute_delayed_replace(std::vector<Entry>& transaction_db, bo
 
     // we can replace cdb[rpos-ts+1,...,rpos]
     size_t cur_sat = 0;
+    size_t local_replaced = 0;
     for (size_t i = 0; !transaction_db.empty(); ++i)
     {
-        if (bgj1_replace_in_db(rpos-i, transaction_db.back())
-            && transaction_db.back().len < params.saturation_radius)
+        if (bgj1_replace_in_db(rpos-i, transaction_db.back()))
         {
-            ++cur_sat;
+            local_replaced++;
+            if( transaction_db.back().len < params.saturation_radius )
+                ++cur_sat;
         }
         transaction_db.pop_back();
     }
     statistics.inc_stats_replacements_list(cur_sat);
+    last_sieve_reductions.fetch_add(local_replaced);
     // update GBL_saturation_count
     if (UNLIKELY(GBL_saturation_count.fetch_sub(cur_sat) <= cur_sat))
     {
