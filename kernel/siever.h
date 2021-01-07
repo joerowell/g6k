@@ -557,9 +557,9 @@ public: // TODO: Make more things private and do not export to Python.
     // and then call gso_update_postprocessing to fix it again.
     // This is bad encapsulation!
 
-    unsigned long long last_sieve_collisions = 0; // A count of the number of collisions that occured during the last sieve
+    CACHELINE_VARIABLE(std::atomic<size_t>, last_sieve_collisions); // A count of the number of collisions that occured during the last sieve
                                              // (note that repeating the same reduction count as multiple collisions)
-    unsigned long long last_sieve_reductions = 0; // A count of the number of reductions performed by the last sieve
+    CACHELINE_VARIABLE(std::atomic<size_t>, last_sieve_reductions); // A count of the number of reductions performed by the last sieve
                                              // This only count effective reduction, not tentative reduction discarded due to collisions.
 
 

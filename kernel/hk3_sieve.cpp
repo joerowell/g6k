@@ -371,6 +371,9 @@ void Siever::hk3_sieve(double alpha)
     TS_db_insertions_finished.store(0, std::memory_order_relaxed);
     TS_currently_sorting.clear();
 
+    last_sieve_collisions.store(0);
+    last_sieve_reductions.store(0);
+
     ENABLE_IF_STATS_MEMORY
     (
         auto old_memory_buckets = statistics.get_stats_memory_buckets();
@@ -518,6 +521,8 @@ void Siever::hk3_sieve_task(TS_Transaction_DB_Type &transaction_db, MAYBE_UNUSED
     ENABLE_IF_STATS_COLLISIONS( auto &&local_stat_collisions_nobucket   = merge_on_exit<unsigned long>([this](unsigned long val){ statistics.inc_stats_collisions_nobucket(val); }); )
     ENABLE_IF_STATS_OTFLIFTS( auto &&local_stat_otflifts_2outer         = merge_on_exit<unsigned long>([this](unsigned long val){ statistics.inc_stats_otflifts_2outer(val); }); )
 
+    size_t local_collisions = 0;
+
     #if COLLECT_STATISTICS_XORPOPCNT || COLLECT_STATISTICS_REDS
         // number of 2-reduction attempts in the bucketing phase
         auto &&local_stat_bucketing_tries = merge_on_exit<unsigned long long>([this](unsigned long long val)
@@ -639,6 +644,7 @@ void Siever::hk3_sieve_task(TS_Transaction_DB_Type &transaction_db, MAYBE_UNUSED
                     ENABLE_IF_STATS_REDSUCCESS(++local_stat_successful_2red_outer;)
                     if (!hk3_sieve_delayed_red_p_db(transaction_db, p_entry, x1_db_index, x1_sign_flip)) // perform 2-reduction
                     {
+                        local_collisions++;
                         // Note that failures due to data races will decrement the collision counter inside delayed_red_p_db
                         ENABLE_IF_STATS_COLLISIONS(++local_stat_collisions_2outer;)
                     }
@@ -662,6 +668,7 @@ void Siever::hk3_sieve_task(TS_Transaction_DB_Type &transaction_db, MAYBE_UNUSED
                         // 2-reductions will find the result already.
                         if(uid_hash_table.check_uid(p_uid  - db[x1_db_index].uid) == true)
                         {
+                            local_collisions++;
                             ENABLE_IF_STATS_COLLISIONS(++local_stat_collisions_nobucket;)
                             continue;
                         }
@@ -677,6 +684,7 @@ void Siever::hk3_sieve_task(TS_Transaction_DB_Type &transaction_db, MAYBE_UNUSED
                         // hash collision check as above
                         if(uid_hash_table.check_uid(p_uid + db[x1_db_index].uid) == true)
                         {
+                            local_collisions++;
                             ENABLE_IF_STATS_COLLISIONS(++local_stat_collisions_nobucket;)
                             continue;
                         }
@@ -715,7 +723,7 @@ void Siever::hk3_sieve_task(TS_Transaction_DB_Type &transaction_db, MAYBE_UNUSED
     // This is not guaranteed to process all pending transactions, but
     // the caller hk3_sieve(...) will later clean up those remaining transactions after all threads have finished.
     hk3_sieve_execute_delayed_insertion(transaction_db, local_len_bound, id);
-
+    last_sieve_collisions.fetch_add(local_collisions);
 }
 
 /**
@@ -1713,6 +1721,7 @@ cleanup:
     }
     transaction_db.sorted_until = transaction_db.size();
     update_len_bound = TS_len_bound.load();
+    last_sieve_reductions.fetch_add(number_of_insertions_performed);
     return number_of_insertions_performed;
 }
 
