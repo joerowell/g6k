@@ -973,7 +973,6 @@ private:
                                                 // If the queue / is empty, that length is taken as TS_outofqueue_len / TS_outoflist_len, which is a
                                                 // negative number (TS_outoutqueue_len is more negative than TS_outoflist_len by design)
     CACHELINE_VARIABLE(std::atomic<size_t>, TS_insertions_performed); // number of insertions actually perfomed. Reset to 0 after resorting. Used to determine when to resort.
-    CACHELINE_VARIABLE(std::atomic<size_t>, TS_saturated_entries);    // how many db entries with length^2 below the saturation bound do we still need until we are done.
     CACHELINE_VARIABLE(std::atomic<float>, TS_len_bound);   // length bound: we put vectors into transaction_db if they are shorter than this. includes all modifiers such as REDUCE_LEN_MARGIN
 
     CACHELINE_VARIABLE2(std::atomic_flag, TS_currently_sorting, = ATOMIC_FLAG_INIT); // Is another thread currently sorting the latest CDB snapshot.
@@ -1101,11 +1100,6 @@ private:
     CACHELINE_VARIABLE(std::mutex, GBL_db_mutex);
     CACHELINE_VARIABLE(std::atomic<CompressedEntry*>, GBL_start_of_cdb_ptr); // point always either to the start of cdb or to cdb_tmp_copy (due to for sorting)
 
-    // saturation stop conditions
-    unsigned int GBL_saturation_histo_imin;
-    double GBL_saturation_histo_bound[Siever::size_of_histo]; // used by gauss sieve & triple sieve
-    CACHELINE_VARIABLE(std::atomic_size_t, GBL_saturation_count); // used by bgj1 sieve
-
     // saturation values
     CACHELINE_VARIABLE(std::atomic_size_t, saturation_count);
     size_t saturation_goal = 0;
@@ -1114,7 +1108,6 @@ private:
     bool increase_saturation(size_t val);
     bool decrease_saturation(size_t val);
     bool test_saturation();
-    bool test_saturation_old();
     bool test_failsafe();
 
 
