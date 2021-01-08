@@ -6,17 +6,61 @@
 #include <thread>
 #include <mutex>
 
-
-void Siever::set_saturation_bounds()
-{
-    GBL_saturation_histo_imin = histo_index(params.saturation_radius);
-    for (unsigned int i = 0; i < size_of_histo; ++i)
-    {
-        GBL_saturation_histo_bound[i] = std::pow(1. + i * (1./size_of_histo), n/2.) * params.saturation_ratio + 20;
+// assumes cdb is properly sorted, not thread-safe
+void Siever::recompute_saturation() {
+    static_assert(static_cast<int>(SieveStatus::LAST) == 4, "Need to update this function");
+    auto Comp = [](CompressedEntry const &ce, double const &bound){return ce.len < bound; };
+    size_t cur_sat = 0;
+    if(sieve_status == SieveStatus::plain || sieve_status == SieveStatus::bgj1) {
+        assert(status_data.plain_data.sorted_until == cdb.size());
+        cur_sat += std::lower_bound(cdb.cbegin(), cdb.cend(), params.saturation_radius, Comp) - cdb.cbegin();
     }
+    else if(sieve_status == SieveStatus::gauss || sieve_status == SieveStatus::triple_mt)
+    {
+        StatusData::Gauss_Data &data = status_data.gauss_data;
+        assert(data.list_sorted_until == data.queue_start);
+        assert(data.queue_sorted_until == cdb.size());
+        cur_sat += std::lower_bound(cdb.cbegin(), cdb.cbegin()+data.queue_start, params.saturation_radius, Comp) - cdb.cbegin();
+        cur_sat += (std::lower_bound(cdb.cbegin()+data.queue_start, cdb.cend(), params.saturation_radius, Comp) - (cdb.cbegin() + data.queue_start) );
+    }
+    else assert(false);
+    saturation_count.store(cur_sat);
 }
 
+bool Siever::init_saturation(bool show_warnings) {
+    saturation_goal = size_t(std::pow(params.saturation_radius, n/2.) * params.saturation_ratio / 2.);
+    recompute_saturation();
+
+    if(saturation_goal > db.size()) {
+        if(show_warnings) std::cerr << "Warning: requested saturation is larger than the database size, hence unachievable.\nYou might want to decrease saturation_radius or saturation_ratio.\n";
+        return false;
+    }
+    else if (saturation_goal > (db.size() * 3) /4 ) {
+        if(show_warnings) std::cerr << "Warning: requested saturation is larger than 75% of the database size.\n";
+    }
+    return true;
+}
+
+bool Siever::increase_saturation(size_t val) {
+    size_t old = saturation_count.fetch_add(val);
+    return old+val >= saturation_goal;
+}
+
+bool Siever::decrease_saturation(size_t val) {
+    size_t old = saturation_count.fetch_sub(val);
+    assert(val <= old);
+    return old-val >= saturation_goal;
+}
+//bool Siever::decrease_saturation(size_t val);
+
 bool Siever::test_saturation()
+{
+    assert(saturation_goal > 0);
+    size_t count = saturation_count.load(std::memory_order_release);
+    return count >= saturation_goal;
+}
+
+bool Siever::test_saturation_old()
 {
     unsigned int cumul = 0;
     for (unsigned int i=0; i < size_of_histo; ++i)
@@ -51,7 +95,7 @@ void Siever::gauss_sieve(size_t max_db_size)
     recompute_histo();
     if (max_db_size==0) max_db_size = 4 * std::pow(4./3., n/2.) + 4*n;
 
-    set_saturation_bounds();
+    init_saturation(false);
 
     int iter = 0;
 
@@ -166,7 +210,7 @@ void Siever::nv_sieve()
     size_t const S = cdb.size();
     CompressedEntry* const fast_cdb = cdb.data();
     recompute_histo();
-    set_saturation_bounds();
+    init_saturation();
 
 
     while(true)
@@ -284,6 +328,7 @@ short Siever::gauss_no_upd_reduce_in_db(CompressedEntry *ce1, CompressedEntry *c
   }
   else
   {
+    bool old_sat = (target_ptr->len <= params.saturation_radius);
     histo[histo_index(target_ptr->len)] --;
     db[target_ptr->i].x = std::move(x_new);
     db[target_ptr->i].uid = std::move(new_uid);
@@ -291,6 +336,8 @@ short Siever::gauss_no_upd_reduce_in_db(CompressedEntry *ce1, CompressedEntry *c
     target_ptr -> len = db[target_ptr->i].len;
     target_ptr -> c = db[target_ptr ->i].c;
     histo[histo_index(target_ptr ->len)] ++; // doing it only now, to avoid numerical error.
+    if(!old_sat and target_ptr->len <= params.saturation_radius)
+            increase_saturation(1);
     ++last_sieve_reductions;
     return which_one;
   }
@@ -370,6 +417,7 @@ CompressedEntry* Siever::reduce_in_db(CompressedEntry *ce1, CompressedEntry *ce2
     }
     else
     {
+        bool old_sat = (target_ptr->len <= params.saturation_radius);
         histo[histo_index(target_ptr->len)] --;
         db[target_ptr->i].x = std::move(x_new);
         db[target_ptr->i].uid = std::move(new_uid);
@@ -377,6 +425,8 @@ CompressedEntry* Siever::reduce_in_db(CompressedEntry *ce1, CompressedEntry *ce2
         target_ptr -> len = db[target_ptr->i].len;
         target_ptr -> c = db[target_ptr ->i].c;
         histo[histo_index(target_ptr ->len)] ++; // doing it only now, to avoid numerical error.
+        if(!old_sat and target_ptr->len <= params.saturation_radius)
+            increase_saturation(1);
         ++last_sieve_reductions;
         return target_ptr;
     }

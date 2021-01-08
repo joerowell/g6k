@@ -368,14 +368,8 @@ bool Siever::bdgl_sieve(size_t nr_buckets_aim, const size_t blocks, const size_t
     switch_mode_to(SieveStatus::plain);
     parallel_sort_cdb();
     statistics.inc_stats_sorting_sieve();
-    size_t const S = cdb.size();
     recompute_histo();
-
-    size_t saturation_index = 0.5 * params.saturation_ratio * std::pow(params.saturation_radius, n/2.0);
-    if( saturation_index > 0.5 * S ) {
-        std::cerr << "Saturation index larger than half of db size" << std::endl;
-        saturation_index = std::min(saturation_index, S-1);
-    }
+    init_saturation();
     
     last_sieve_collisions.store(0);
     last_sieve_reductions.store(0);
@@ -393,8 +387,8 @@ bool Siever::bdgl_sieve(size_t nr_buckets_aim, const size_t blocks, const size_t
         bdgl_queue(t_queues, transaction_db );
 
         parallel_sort_cdb();
-
-        if( cdb[saturation_index].len <= params.saturation_radius ) {
+        recompute_saturation();
+        if( test_saturation() ) {
             assert(std::is_sorted(cdb.cbegin(),cdb.cend(), compare_CE()  ));
             invalidate_histo();
             recompute_histo();

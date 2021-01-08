@@ -79,18 +79,9 @@ void Siever::bgj1_sieve(double alpha)
     auto task = &Siever::bgj1_sieve_task<-1>;
     UNTEMPLATE_DIM(&Siever::bgj1_sieve_task, task, n);
 
-    // We terminate bgj1 if we have (roughly) more than the initial value of GBL_saturation_count
-    // vectors in our database that are shorter than params.saturation_radius (radius includes gh normalization).
-    // We decrease this until 0, at which point we will stop.
-    // Remark: When overwriting a vector that was already shorter than the saturation_radius, we might double-count.
-    // For parameters in the intended ranges, this is not a problem.
-    GBL_saturation_count = std::pow(params.saturation_radius, n/2.) * params.saturation_ratio / 2.;
-
-    // current number of entries below the saturation bound. We use the fact that cdb is sorted.
-    size_t cur_sat = std::lower_bound(cdb.cbegin(), cdb.cend(), params.saturation_radius, [](CompressedEntry const &ce, double const &bound){return ce.len < bound; } ) - cdb.cbegin();
-    if (cur_sat >= GBL_saturation_count)
+    init_saturation();
+    if(test_saturation())
         return;
-    GBL_saturation_count -= cur_sat;
 
     for (size_t c = 0; c < params.threads; ++c)
     {
@@ -105,7 +96,7 @@ void Siever::bgj1_sieve(double alpha)
     // we set histo for statistical purposes
     recompute_histo(); // TODO: Remove?
 
-    if( GBL_saturation_count > 0 and test_failsafe() ) {
+    if( !test_saturation() and test_failsafe() ) {
         std::cerr << "Failsafe: Collision Threshold was reached before saturation." << std::endl;
     }
 
@@ -469,14 +460,14 @@ bool Siever::bgj1_execute_delayed_replace(std::vector<Entry>& transaction_db, bo
     }
     statistics.inc_stats_replacements_list(cur_sat);
     last_sieve_reductions.fetch_add(local_replaced);
-    // update GBL_saturation_count
-    if (UNLIKELY(GBL_saturation_count.fetch_sub(cur_sat) <= cur_sat))
+
+    // update saturation
+    if (UNLIKELY(increase_saturation(cur_sat)))
     {
-        GBL_saturation_count = 0;
         GBL_remaining_trial = -1;
     }
 
-    if( test_failsafe() ) {
+    if( UNLIKELY(test_failsafe()) ) {
         GBL_remaining_trial = -1;
     }
 
@@ -530,7 +521,10 @@ bool Siever::bgj1_replace_in_db(size_t cdb_index, Entry &e)
         return false;
     }
     uid_hash_table.erase_uid(db[ce.i].uid);
-    if(ce.len < params.saturation_radius) { statistics.inc_stats_dataraces_replaced_was_saturated(); } // saturation count becomes (very) wrong if this happens (often)
+    if(ce.len < params.saturation_radius) { 
+        statistics.inc_stats_dataraces_replaced_was_saturated(); 
+        decrease_saturation(1);
+    }
     ce.len = e.len;
     ce.c = e.c;
     // TODO: FIX THIS PROPERLY. We have a race condition here.

@@ -321,31 +321,11 @@ void Siever::hk3_sieve(double alpha)
         return;
     }
     // We will trigger termination of the alg once we have this many vectors with len^2 below saturation radius.
-    size_t const requested_saturation = std::pow(params.saturation_radius, n/2.) * params.saturation_ratio / 2.;
-    bool saturation_unreachable = false; // To avoid multiple errors / warnings.
-    if(requested_saturation > db_size)
-    {
-        std::cerr << "Warning: requested saturation is larger than the database size, hence unachievable.\nYou might want to decrease saturation_radius or saturation_ratio.\n";
-        saturation_unreachable = true;
-    }
-    else if (requested_saturation > (db_size * 3) /4 )
-    {
-        std::cerr << "Warning: requested saturation is larger than 75% of the database size.\n";
-    }
-    // Compute the number of vectors that already are shorter than the saturation radius.
-    // Since cdb is partially sorted, we may use binary search (via std::lower_bound) on each sorted part to determine the number.
-    auto Comp = [](CompressedEntry const &ce, double const &bound){return ce.len < bound; };
-    size_t TS_current_saturation = std::lower_bound(cdb.cbegin(), cdb.cbegin()+already_searched, params.saturation_radius, Comp) - cdb.cbegin();
-    TS_current_saturation += ( std::lower_bound(cdb.cbegin()+already_searched, cdb.cend(), params.saturation_radius, Comp) - (cdb.cbegin() + already_searched) );
-
-    if(TS_current_saturation >= requested_saturation)
+    bool saturation_unreachable = !init_saturation();
+    if(test_saturation())
     {
         return;
     }
-
-    // Note that TS_saturated_entries is UNSIGNED. So triggering saturation means that this variable underflows.
-    // TODO: Consider changing to a signed variable.
-    TS_saturated_entries.store(requested_saturation - TS_current_saturation, std::memory_order_relaxed);
 
     // We create the transaction db's here at the caller rather than inside the threads; the main reason is
     // that it is simpler to clean-up / resume. Notably, any unmerged transaction persists between calls and we
@@ -416,8 +396,7 @@ void Siever::hk3_sieve(double alpha)
                 // We test for saturation, because we might have reached saturation in the final merge & resort.
                 // (The usual saturation trigger is not set, because TS_finished only records the first reason
                 // why we terminate -- we might change that, but this way seems cleaner.)
-                if (   (TS_saturated_entries.load(std::memory_order_relaxed) > 0)
-                    && (TS_saturated_entries.load(std::memory_order_relaxed) <= requested_saturation))
+                if (!test_saturation())
                 {
                     TS_finished.store(TS_Finished::running, std::memory_order_relaxed); // will trigger rerun.
                 }
@@ -430,7 +409,7 @@ void Siever::hk3_sieve(double alpha)
                 break;
             case TS_Finished::failsafe_collisions:
                 // stop by failsafe, but check if by chance also saturated
-                if( TS_saturated_entries < requested_saturation ) {
+                if(!test_saturation()) {
                     std::cerr << "Failsafe: Collision Threshold was reached before saturation." << std::endl;
                 } 
                 else {
@@ -472,7 +451,7 @@ ENABLE_IF_STATS_MEMORY
             statistics.set_stats_memory_transactions(mem_transactions);
     )
 
-    if( (TS_saturated_entries <= requested_saturation) && (TS_saturated_entries > 0) && !saturation_unreachable) // indicating no underflow
+    if( !test_saturation() && !saturation_unreachable) // indicating no underflow
     {
         // Note: We will also get a warning related to TS_finished from the above switch statement.
         std::cerr << "Warning: Saturation condition could not be reached during triplesieve.\n";
@@ -1134,7 +1113,7 @@ size_t Siever::hk3_sieve_execute_delayed_insertion(TS_Transaction_DB_Type &trans
     // We count locally first and perform the atomic increment at the end of the function.
     auto &&new_saturated_entries = merge_on_exit<size_t>([this](size_t const val)
     {
-        if(TS_saturated_entries.fetch_sub(val) <= val )
+        if(increase_saturation(val))
         {
             if (TS_finished.load(std::memory_order_relaxed) == TS_Finished::running)
                 TS_finished.store(TS_Finished::saturated, std::memory_order_relaxed);

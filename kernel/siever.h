@@ -1104,8 +1104,16 @@ private:
     unsigned int GBL_saturation_histo_imin;
     double GBL_saturation_histo_bound[Siever::size_of_histo]; // used by gauss sieve & triple sieve
     CACHELINE_VARIABLE(std::atomic_size_t, GBL_saturation_count); // used by bgj1 sieve
-    void set_saturation_bounds();
+
+    // saturation values
+    CACHELINE_VARIABLE(std::atomic_size_t, saturation_count);
+    size_t saturation_goal = 0;
+    void recompute_saturation();
+    bool init_saturation(bool show_warnings=true); // returns false is saturation is unreachable
+    bool increase_saturation(size_t val);
+    bool decrease_saturation(size_t val);
     bool test_saturation();
+    bool test_saturation_old();
     bool test_failsafe();
 
 
