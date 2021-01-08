@@ -84,6 +84,7 @@ def bkz_kernel(arg0, params=None, seed=None):
     blocksizes = eval("range(%s)" % re.sub(":", ",", blocksizes))
     pre_blocksize = params.pop("bkz/pre_blocksize")
     tours = params.pop("bkz/tours")
+    save_prefix = params.pop("save_prefix")
 
     # misc
     verbose = params.pop("verbose")
@@ -144,6 +145,12 @@ def bkz_kernel(arg0, params=None, seed=None):
                 print(fmt % (algbkz + "+" + ("enum" if algbkz == "fpylll" else g6k.params.default_sieve),
                              jump, pump_params["down_sieve"], extra_dim4free,
                              blocksize, slope, time.time() - T0))
+
+        if save_prefix is not None:
+            fn = open("%s_%d_%d_%d.mat" % (save_prefix.rstrip(), g6k.M.d, blocksize, seed), "w")
+            fn.write(str(g6k.M.B))
+            fn.close()
+
 
     tracer.exit()
     slope = basis_quality(M)["/"]

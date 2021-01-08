@@ -29,6 +29,7 @@ def hkz_kernel(arg0, params=None, seed=None):
     reserved_n = n
     params = params.new(reserved_n=reserved_n, otf_lift=False)
     verbose = params.pop("verbose")
+    save_prefix = params.pop("save_prefix")
 
     pump_params = pop_prefixed_params("pump", params)
     workout_params = pop_prefixed_params("workout", params)
@@ -38,7 +39,7 @@ def hkz_kernel(arg0, params=None, seed=None):
         workout_params["verbose"] = True
     challenge_seed = params.pop("challenge_seed")
 
-    if workout_params["dim4free_min"]:
+    if workout_params["dim4free_min"] < 0:
         workout_params["dim4free_min"] = dim4free_wrapper(default_dim4free_fun, n)
 
     A, _ = load_svpchallenge_and_randomize(n, s=challenge_seed, seed=seed)
@@ -51,6 +52,12 @@ def hkz_kernel(arg0, params=None, seed=None):
     pump_params["down_stop"] = 9990
     pump(g6k, tracer, 0, n, workout_params["dim4free_min"], **pump_params)
     g6k.lll(0, n)
+
+    if save_prefix is not None:
+        fn = open("%s_%d_%d.mat" % (save_prefix.rstrip(), g6k.M.d, seed), "w")
+        fn.write(str(g6k.M.B))
+        fn.close()
+
 
     return tracer.exit()
 
@@ -86,6 +93,7 @@ def hkz():
                            extractf={"avg_max": lambda n, params, stat: db_stats(stat)[0]})
 
     output_profiles(args.profile, profiles)
+
 
     if args.pickle:
         pickler.dump(stats, open("hkz-%d-%d-%d-%d.sobj" %
