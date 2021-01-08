@@ -1173,13 +1173,13 @@ cdef class Siever(object):
         if self.n < min_n:
             return
 
-        histo = self.db_stats()
-        i = self.histo_index(self.params.saturation_radius)
-        sat = max(histo[i:])
+        sig_on()
+        progress = self._core.saturation_progress()
+        sig_off()
 
-        if sat < .99 * self.params.saturation_ratio:
+        if progress < 1.:
             message = "saturation %.3f at [b:%d P: %d - %d / %d], radius %.3f, goal: %.3f"
-            message = message%(sat, self.n, self.l, self.r, self.full_n, self.params.saturation_radius, self.params.saturation_ratio)
+            message = message%(progress*self.params.saturation_ratio, self.n, self.l, self.r, self.full_n, self.params.saturation_radius, self.params.saturation_ratio)
             logging.warning(message)
             logging.info("Could not reach saturation, progress may slow.")
             raise SaturationError()

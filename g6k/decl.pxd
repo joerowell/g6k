@@ -252,6 +252,7 @@ cdef extern from "../kernel/siever.h" nogil:
         void reset_stats()
         size_t db_size()
         size_t histo_index(double l)
+        double saturation_progress()
 
         # variables (avoid writing to them from the Python layer, if possible)
 

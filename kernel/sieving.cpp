@@ -60,16 +60,10 @@ bool Siever::test_saturation()
     return count >= saturation_goal;
 }
 
-bool Siever::test_saturation_old()
+double Siever::saturation_progress()
 {
-    unsigned int cumul = 0;
-    for (unsigned int i=0; i < size_of_histo; ++i)
-    {
-        cumul += histo[i];
-        if (i < GBL_saturation_histo_imin) continue;
-        if (1.99 * cumul > GBL_saturation_histo_bound[i]) return true;
-    }
-    return false;
+    init_saturation(false);
+    return double(saturation_count)/saturation_goal;
 }
 
 bool Siever::test_failsafe()

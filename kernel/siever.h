@@ -528,6 +528,7 @@ public:
     void reset_stats() { statistics.clear_statistics(); }
     size_t db_size() const { return db.size(); }
     inline size_t histo_index(double l) const; // in siever.inl
+    double saturation_progress();
 
 /**
     TODO: Global Internal variables. Some of these are written to from the Python layer
