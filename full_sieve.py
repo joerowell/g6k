@@ -8,6 +8,9 @@ from __future__ import absolute_import
 import pickle as pickler
 from collections import OrderedDict
 
+from fpylll import IntegerMatrix, LLL, FPLLL, GSO
+from fpylll.algorithms.bkz2 import BKZReduction
+
 from g6k.algorithms.workout import workout
 from g6k.siever import Siever
 from g6k.utils.cli import parse_args, run_all, pop_prefixed_params
@@ -16,6 +19,7 @@ from g6k.utils.util import load_svpchallenge_and_randomize, db_stats
 from g6k.utils.util import sanitize_params_names, print_stats, output_profiles
 import six
 
+from random import randint
 
 def full_sieve_kernel(arg0, params=None, seed=None):
     # Pool.map only supports a single parameter
@@ -24,14 +28,64 @@ def full_sieve_kernel(arg0, params=None, seed=None):
     else:
         n = arg0
 
+    lattice_type = params.pop("ltype", params)
+    preproc = params.pop("preproc", params)
     pump_params = pop_prefixed_params("pump", params)
     verbose = params.pop("verbose")
+    challenge_seed = params.pop("challenge_seed")
 
     reserved_n = n
     params = params.new(reserved_n=reserved_n, otf_lift=False)
 
-    challenge_seed = params.pop("challenge_seed")
-    A, _ = load_svpchallenge_and_randomize(n, s=challenge_seed, seed=seed)
+    if lattice_type in ["svp_challenge", "sc"]:
+        
+        A, _ = load_svpchallenge_and_randomize(n, s=challenge_seed, seed=seed)
+
+    elif lattice_type in ["orthogonal", "o"]:
+        A = IntegerMatrix(n, n)
+        A.gen_identity(n)
+
+    elif lattice_type in ["rand-orthogonal", "ro"]:
+        A = IntegerMatrix(n, n)
+        A.gen_identity(n)
+
+        for i in range(10*n**2):
+            a = randint(0, n-1)
+            b = (a + randint(1, n-1)) % n
+            A.swap_rows(a, b)
+
+            a = randint(0, n-1)
+            b = (randint(1, n-1) + a) % n
+            s = 2 * randint(0, 1) - 1
+            A[a].addmul(A[b], s)
+
+        LLL.reduction(A)
+
+    elif lattice_type in ["ntru-sk", "ns"]:
+        f = []
+        g = []
+        for i in range(n):
+            f.append(randint(-1,1))
+            g.append(randint(-1,1))
+        M = []
+        for i in range(n):
+            M += [f+g]
+            f = [f[-1]] + f[:-1]
+            g = [g[-1]] + g[:-1]
+        A = IntegerMatrix.from_matrix(M)
+
+        print(A[0])
+        LLL.reduction(A)
+        print(A[0])
+
+
+    elif lattice_type in ["bad", "b"]:
+        A = IntegerMatrix.from_file("hkzbases/hkz_%d_%d.mat"%(n+16, seed))
+        A = A[:-16]
+
+
+    else:
+        raise ValueError("Lattice type %s not recognized"%lattice_type)
 
     g6k = Siever(A, params, seed=seed)
     tracer = SieveTreeTracer(g6k, root_label=("full-sieve", n), start_clocks=True)
@@ -44,7 +98,7 @@ def full_sieve_kernel(arg0, params=None, seed=None):
         0,
         n,
         dim4free_min=0,
-        dim4free_dec=15,
+        dim4free_dec= 15 if preproc else n,
         pump_params=pump_params,
         verbose=verbose,
     )
@@ -58,7 +112,7 @@ def full_sieve():
     """
     description = full_sieve.__doc__
 
-    args, all_params = parse_args(description, challenge_seed=0)
+    args, all_params = parse_args(description, challenge_seed=0, preproc=True, ltype="sc")
 
     stats = run_all(
         full_sieve_kernel,

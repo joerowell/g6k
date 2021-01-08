@@ -23,7 +23,7 @@ def print_pump_state(pump, verbose=False):
         print("\t col/|db| = %.3f, \t red/|db| = %.3f, \t col/red = %.3f" %
                 (pump.g6k.last_sieve_collisions / float(len(pump.g6k)), 
                  pump.g6k.last_sieve_reductions / float(len(pump.g6k)),
-                pump.g6k.last_sieve_collisions / float(pump.g6k.last_sieve_reductions)))
+                pump.g6k.last_sieve_collisions / float(.1+pump.g6k.last_sieve_reductions)))
     sys.stdout.flush()
 
 
