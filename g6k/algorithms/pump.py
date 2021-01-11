@@ -41,14 +41,20 @@ def wrapped_sieve(pump):
 
             # Match lifting effort to insertion strategy
             pump.g6k(alg=alg, tracer=pump.tracer)
+            pump.g6k.check_saturation()
+            histo = pump.g6k.db_stats()
+            i = pump.g6k.histo_index( pump.g6k.params.saturation_radius)
+            sat = max(histo[i:])
+            print(sat)
+
 
     except SaturationError as e:
         if pump.saturation_error == "skip":
             pump.down_sieve = False
-            logging.info("saturation issue: breaking pump.")
+            print("saturation issue: breaking pump.")
             cont = False
         elif pump.saturation_error == "weaken":
-            logging.info("saturation issue: weakening pump.")
+            print("saturation issue: weakening pump.")
             pump.sat_factor /= 2.
         elif pump.saturation_error == "ignore":
             pass
