@@ -27,7 +27,7 @@ void Siever::recompute_saturation() {
     saturation_count.store(cur_sat);
 }
 
-bool Siever::(bool show_warnings) {
+bool Siever::init_saturation(bool show_warnings) {
     saturation_goal = size_t(std::ceil(std::pow(params.saturation_radius, n/2.) * params.saturation_ratio / 2.));
     recompute_saturation();
 
