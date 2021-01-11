@@ -479,7 +479,7 @@ cdef class Siever(object):
             >>> g6k.initialize_local(0, 0, 10)
             >>> g6k()
             >>> len(g6k)
-            20
+            72
             >>> db = list(g6k.itervalues())
             >>> out = db[0]; out if db[0][0] > 0 else tuple([-x for x in out])
             (1, 0, 0, 0, 0, 0, 0, 0, 0, 0)
@@ -1103,14 +1103,14 @@ cdef class Siever(object):
             >>> siever.initialize_local(0, 1, 11)
             >>> siever()
             >>> len(siever)
-            20
+            72
             >>> S = set(siever.itervalues())
             >>> siever.db_size()
-            20
+            72
             >>> siever.resize_db(len(siever)/2)
 
             >>> len(siever)
-            10
+            36
 
         """
 
@@ -1653,7 +1653,7 @@ cdef class Siever(object):
             197445
 
             >>> g6k = Siever(A)
-            >>> g6k.initialize_local(0, 10, 30)
+            >>> g6k.initialize_local(0, 5, 30)
             >>> g6k.best_lifts()
             []
 

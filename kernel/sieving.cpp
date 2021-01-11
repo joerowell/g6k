@@ -28,7 +28,7 @@ void Siever::recompute_saturation() {
 }
 
 bool Siever::init_saturation(bool show_warnings) {
-    saturation_goal = size_t(std::pow(params.saturation_radius, n/2.) * params.saturation_ratio / 2.);
+    saturation_goal = size_t(std::ceil(std::pow(params.saturation_radius, n/2.) * params.saturation_ratio / 2.));
     recompute_saturation();
 
     if(saturation_goal > db.size()) {
