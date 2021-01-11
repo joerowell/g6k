@@ -1173,10 +1173,7 @@ cdef class Siever(object):
         if self.n < min_n:
             return
 
-        sig_on()
         progress = self._core.saturation_progress()
-        sig_off()
-
         if progress < 1.:
             message = "saturation %.3f at [b:%d P: %d - %d / %d], radius %.3f, goal: %.3f"
             message = message%(progress*self.params.saturation_ratio, self.n, self.l, self.r, self.full_n, self.params.saturation_radius, self.params.saturation_ratio)
