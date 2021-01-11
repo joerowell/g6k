@@ -36,7 +36,7 @@ void Siever::recompute_saturation() {
 }
 
 bool Siever::init_saturation(bool show_warnings) {
-    saturation_goal = size_t(std::ceil(std::pow(params.saturation_radius, n/2.) * params.saturation_ratio / 2.));
+    saturation_goal = size_t(std::pow(params.saturation_radius, n/2.) * params.saturation_ratio / 2.)+1;
     recompute_saturation();
 
     if(saturation_goal > db.size()) {
@@ -63,13 +63,13 @@ bool Siever::decrease_saturation(size_t val) {
 bool Siever::test_saturation()
 {
     size_t count = saturation_count.load(std::memory_order_release);
-    return count >= saturation_goal;
+    return count >= saturation_goal or double(db.size())+1.001 >= std::pow(2, n/2.);
 }
 
 double Siever::saturation_progress()
 {
     init_saturation(false);
-    return double(saturation_count)/saturation_goal;
+    return std::max(double(saturation_count)/saturation_goal, (double(db.size())+1.001) * std::pow(.5, n/2.));
 }
 
 bool Siever::test_failsafe()
