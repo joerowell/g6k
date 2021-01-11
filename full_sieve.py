@@ -8,9 +8,6 @@ from __future__ import absolute_import
 import pickle as pickler
 from collections import OrderedDict
 
-from fpylll import IntegerMatrix, LLL, FPLLL, GSO
-from fpylll.algorithms.bkz2 import BKZReduction
-
 from g6k.algorithms.workout import workout
 from g6k.siever import Siever
 from g6k.utils.cli import parse_args, run_all, pop_prefixed_params
@@ -19,7 +16,6 @@ from g6k.utils.util import load_svpchallenge_and_randomize, db_stats
 from g6k.utils.util import sanitize_params_names, print_stats, output_profiles
 import six
 
-from random import randint
 
 def full_sieve_kernel(arg0, params=None, seed=None):
     # Pool.map only supports a single parameter
@@ -36,7 +32,7 @@ def full_sieve_kernel(arg0, params=None, seed=None):
     reserved_n = n
     params = params.new(reserved_n=reserved_n, otf_lift=False)
 
-        
+
     A, _ = load_svpchallenge_and_randomize(n, s=challenge_seed, seed=seed)
 
     g6k = Siever(A, params, seed=seed)
