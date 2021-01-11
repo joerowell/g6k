@@ -41,9 +41,7 @@ def wrapped_sieve(pump):
 
             # Match lifting effort to insertion strategy
             pump.g6k(alg=alg, tracer=pump.tracer)
-            pump.g6k.check_saturation()
-            histo = pump.g6k.db_stats()
-
+            
     except SaturationError as e:
         if pump.saturation_error == "skip":
             pump.down_sieve = False

@@ -12,12 +12,20 @@ void Siever::recompute_saturation() {
     auto Comp = [](CompressedEntry const &ce, double const &bound){return ce.len < bound; };
     size_t cur_sat = 0;
     if(sieve_status == SieveStatus::plain || sieve_status == SieveStatus::bgj1) {
+        if( status_data.plain_data.sorted_until < cdb.size() ) {
+            // only called in exceptional cases that sorting got invalidated
+            parallel_sort_cdb(); 
+        }
         assert(status_data.plain_data.sorted_until == cdb.size());
         cur_sat += std::lower_bound(cdb.cbegin(), cdb.cend(), params.saturation_radius, Comp) - cdb.cbegin();
     }
     else if(sieve_status == SieveStatus::gauss || sieve_status == SieveStatus::triple_mt)
     {
         StatusData::Gauss_Data &data = status_data.gauss_data;
+        if( data.list_sorted_until < data.queue_start or data.queue_sorted_until < cdb.size() ) {
+            // only called in exceptional cases that sorting got invalidated
+            parallel_sort_cdb(); 
+        }
         assert(data.list_sorted_until == data.queue_start);
         assert(data.queue_sorted_until == cdb.size());
         cur_sat += std::lower_bound(cdb.cbegin(), cdb.cbegin()+data.queue_start, params.saturation_radius, Comp) - cdb.cbegin();
