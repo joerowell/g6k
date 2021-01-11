@@ -190,10 +190,6 @@ start_over:
         statistics.inc_stats_sorting_sieve();
         status_data.gauss_data.reducedness = 2;
         if (test_saturation()) return;
-        if (test_failsafe()) {
-            std::cerr << "Failsafe: Collision Threshold was reached before saturation." << std::endl;
-            return;
-        }
     }   // outer while-loop (managing incrementing the db)
 }
 
