@@ -27,7 +27,7 @@ void Siever::recompute_saturation() {
     saturation_count.store(cur_sat);
 }
 
-bool Siever::init_saturation(bool show_warnings) {
+bool Siever::(bool show_warnings) {
     saturation_goal = size_t(std::ceil(std::pow(params.saturation_radius, n/2.) * params.saturation_ratio / 2.));
     recompute_saturation();
 
@@ -51,11 +51,9 @@ bool Siever::decrease_saturation(size_t val) {
     assert(val <= old);
     return old-val >= saturation_goal;
 }
-//bool Siever::decrease_saturation(size_t val);
 
 bool Siever::test_saturation()
 {
-    assert(saturation_goal > 0);
     size_t count = saturation_count.load(std::memory_order_release);
     return count >= saturation_goal;
 }
