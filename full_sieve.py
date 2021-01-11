@@ -28,7 +28,7 @@ def full_sieve_kernel(arg0, params=None, seed=None):
     else:
         n = arg0
 
-        preproc = params.pop("preproc", params)
+    preproc = params.pop("preproc", params)
     pump_params = pop_prefixed_params("pump", params)
     verbose = params.pop("verbose")
     challenge_seed = params.pop("challenge_seed")

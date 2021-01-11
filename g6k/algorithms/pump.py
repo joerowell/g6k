@@ -43,10 +43,6 @@ def wrapped_sieve(pump):
             pump.g6k(alg=alg, tracer=pump.tracer)
             pump.g6k.check_saturation()
             histo = pump.g6k.db_stats()
-            i = pump.g6k.histo_index( pump.g6k.params.saturation_radius)
-            sat = max(histo[i:])
-            print(sat)
-
 
     except SaturationError as e:
         if pump.saturation_error == "skip":
